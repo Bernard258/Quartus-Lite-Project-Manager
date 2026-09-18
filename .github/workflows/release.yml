@@ -1,0 +1,97 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag, for example v0.1.0
+        required: true
+        type: string
+      prerelease:
+        description: Mark the release as a prerelease
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            platform: linux-x86_64
+            runner: ubuntu-latest
+            binary: qlm
+          - target: x86_64-apple-darwin
+            platform: macos-x86_64
+            runner: macos-15-intel
+            binary: qlm
+          - target: aarch64-apple-darwin
+            platform: macos-aarch64
+            runner: macos-15
+            binary: qlm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - run: cargo build --locked --release --target ${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qlm-${{ matrix.platform }}
+          path: target/${{ matrix.target }}/release/${{ matrix.binary }}
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: build
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: qlm-*
+          path: artifacts
+
+      - name: Prepare release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          find artifacts -type f -name 'qlm*' -print0 | while IFS= read -r -d '' file; do
+            platform="${file#artifacts/}"
+            platform="${platform%%/*}"
+            case "$platform" in
+              qlm-linux-x86_64) output=qlm-linux-x86_64 ;;
+              qlm-macos-x86_64) output=qlm-macos-x86_64 ;;
+              qlm-macos-aarch64) output=qlm-macos-aarch64 ;;
+              *) echo "Unexpected artifact: $file" >&2; exit 1 ;;
+            esac
+            cp "$file" "release-assets/$output"
+          done
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_COMMIT: ${{ github.sha }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          set -euo pipefail
+          release_flags=()
+          if [ "$PRERELEASE" = "true" ]; then
+            release_flags+=(--prerelease)
+          fi
+          gh release create "$RELEASE_TAG" release-assets/* \
+            --target "$RELEASE_COMMIT" \
+            --title "$RELEASE_TAG" \
+            --generate-notes \
+            "${release_flags[@]}"

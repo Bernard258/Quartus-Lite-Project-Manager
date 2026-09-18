@@ -284,3 +284,19 @@ and refusing stale/missing programming output. Hardware programming is tested
 with simulated executables. Real Quartus tests cover synchronization and custom
 assignments. A full MAX 10 compilation was also verified with Quartus Lite 25.1;
 the generic scaffold produces expected missing-pin/timing-constraint warnings.
+
+## GitHub Actions
+
+The `Quartus Manager` workflow runs tests and Clippy on Linux, then builds `qlm`
+for Linux x86_64 and macOS Intel and Apple Silicon. Download
+binaries from the workflow run's artifacts. Tests requiring an installed Quartus
+are excluded from CI; Quartus is still required for device queries, compilation,
+and programming when using the downloaded CLI.
+
+To publish binaries, run **Actions → Release → Run workflow** on the desired
+branch and enter a tag such as `v0.1.0`. Enable the prerelease option when needed.
+The workflow builds all three platforms and creates a GitHub release with `qlm-*`
+assets. A new tag points to the commit selected for the workflow run; if using an
+existing tag, select that tag when starting the workflow so the binaries match.
+On Linux and macOS, mark the downloaded binary executable with `chmod +x`, rename
+it to `qlm`, and put it on `PATH`.
