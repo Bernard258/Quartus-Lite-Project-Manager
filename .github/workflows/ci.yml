@@ -14,6 +14,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Check installer
+        run: |
+          sh -n scripts/install.sh
+          sh -n scripts/uninstall.sh
+          python3 tests/install.py
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
