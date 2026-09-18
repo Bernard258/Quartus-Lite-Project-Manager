@@ -1,0 +1,19 @@
+[package]
+name = "quartus-manager"
+version = "0.1.0"
+edition = "2024"
+description = "Create Quartus Lite projects and manage HDL source references"
+
+[features]
+default = ["tui"]
+tui = []
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+crossterm = "0.28"
+ratatui = "0.29"
+
+[[bin]]
+name = "qlm"
+path = "src/main.rs"
